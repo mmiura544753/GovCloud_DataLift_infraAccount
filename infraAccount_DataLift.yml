@@ -8,7 +8,7 @@ Resources:
         Properties:
             Type: "ipsec.1"
             StaticRoutesOnly: false
-            CustomerGatewayId: "cgw-07b50e65419d0d2f7"
+            CustomerGatewayId: !Ref EC2CustomerGateway
             Tags: 
               - 
                 Key: "Name"
@@ -168,17 +168,17 @@ Resources:
     EC2NetworkInsightsAnalysis:
         Type: "AWS::EC2::NetworkInsightsAnalysis"
         Properties:
-            NetworkInsightsPathId: "nip-077b5f94de62075ab"
+            NetworkInsightsPathId: !Ref EC2NetworkInsightsPath
 
     EC2NetworkInsightsAnalysis2:
         Type: "AWS::EC2::NetworkInsightsAnalysis"
         Properties:
-            NetworkInsightsPathId: "nip-0bedf419247ca656d"
+            NetworkInsightsPathId: !Ref EC2NetworkInsightsPath2
 
     EC2NetworkInsightsAnalysis3:
         Type: "AWS::EC2::NetworkInsightsAnalysis"
         Properties:
-            NetworkInsightsPathId: "nip-047e017eff717d8c9"
+            NetworkInsightsPathId: !Ref EC2NetworkInsightsPath3
 
     RAMResourceShare:
         Type: "AWS::RAM::ResourceShare"
@@ -209,4 +209,193 @@ Resources:
               - "908027381058"
             ResourceArns: 
               - !Sub "arn:aws:ec2:${AWS::Region}:${AWS::AccountId}:transit-gateway/${EC2TransitGateway}"
+
+    EC2CustomerGateway:
+        Type: "AWS::EC2::CustomerGateway"
+        Properties:
+            BgpAsn: 65000
+            IpAddress: "172.22.65.18"
+            Type: "ipsec.1"
+            Tags: 
+              - 
+                Key: "Name"
+                Value: "dx-tgw-vpn01-cgw01"
+
+    EC2TransitGatewayRoute2:
+        Type: "AWS::EC2::TransitGatewayRoute"
+        Properties:
+            DestinationCidrBlock: "172.22.65.16/28"
+            TransitGatewayRouteTableId: "tgw-rtb-0c350530e716b4136"
+            TransitGatewayAttachmentId: "tgw-attach-07f729a9452de7926"
+
+    EC2TransitGatewayRoute3:
+        Type: "AWS::EC2::TransitGatewayRoute"
+        Properties:
+            DestinationCidrBlock: "172.22.65.4/30"
+            TransitGatewayRouteTableId: "tgw-rtb-0c350530e716b4136"
+            TransitGatewayAttachmentId: "tgw-attach-07f729a9452de7926"
+
+    EC2TransitGatewayRoute4:
+        Type: "AWS::EC2::TransitGatewayRoute"
+        Properties:
+            DestinationCidrBlock: "172.22.224.0/24"
+            TransitGatewayRouteTableId: "tgw-rtb-0228b4236053ed018"
+            TransitGatewayAttachmentId: "tgw-attach-0a3cd19b71c9de203"
+
+    EC2TransitGatewayRoute5:
+        Type: "AWS::EC2::TransitGatewayRoute"
+        Properties:
+            DestinationCidrBlock: "172.22.229.0/24"
+            TransitGatewayRouteTableId: "tgw-rtb-0228b4236053ed018"
+            TransitGatewayAttachmentId: "tgw-attach-09093f37e6f21bf39"
+
+    EC2TransitGatewayRoute6:
+        Type: "AWS::EC2::TransitGatewayRoute"
+        Properties:
+            DestinationCidrBlock: "172.22.41.0/24"
+            TransitGatewayRouteTableId: "tgw-rtb-0228b4236053ed018"
+            TransitGatewayAttachmentId: "tgw-attach-08aa777f44a735c1f"
+
+    EC2TransitGatewayRouteTableAssociation2:
+        Type: "AWS::EC2::TransitGatewayRouteTableAssociation"
+        Properties:
+            TransitGatewayAttachmentId: "tgw-attach-09093f37e6f21bf39"
+            TransitGatewayRouteTableId: "tgw-rtb-0228b4236053ed018"
+
+    EC2TransitGatewayRouteTableAssociation3:
+        Type: "AWS::EC2::TransitGatewayRouteTableAssociation"
+        Properties:
+            TransitGatewayAttachmentId: "tgw-attach-08aa777f44a735c1f"
+            TransitGatewayRouteTableId: "tgw-rtb-0228b4236053ed018"
+
+    EC2TransitGatewayRouteTableAssociation4:
+        Type: "AWS::EC2::TransitGatewayRouteTableAssociation"
+        Properties:
+            TransitGatewayAttachmentId: "tgw-attach-0a3cd19b71c9de203"
+            TransitGatewayRouteTableId: "tgw-rtb-0228b4236053ed018"
+
+    EC2TransitGatewayRouteTableAssociation5:
+        Type: "AWS::EC2::TransitGatewayRouteTableAssociation"
+        Properties:
+            TransitGatewayAttachmentId: "tgw-attach-07f729a9452de7926"
+            TransitGatewayRouteTableId: "tgw-rtb-0c350530e716b4136"
+
+    EC2TransitGatewayRouteTablePropagation2:
+        Type: "AWS::EC2::TransitGatewayRouteTablePropagation"
+        Properties:
+            TransitGatewayAttachmentId: "tgw-attach-08aa777f44a735c1f"
+            TransitGatewayRouteTableId: "tgw-rtb-0228b4236053ed018"
+
+    EC2TransitGatewayRouteTablePropagation3:
+        Type: "AWS::EC2::TransitGatewayRouteTablePropagation"
+        Properties:
+            TransitGatewayAttachmentId: "tgw-attach-09093f37e6f21bf39"
+            TransitGatewayRouteTableId: "tgw-rtb-0228b4236053ed018"
+
+    EC2TransitGatewayRouteTablePropagation4:
+        Type: "AWS::EC2::TransitGatewayRouteTablePropagation"
+        Properties:
+            TransitGatewayAttachmentId: "tgw-attach-0a3cd19b71c9de203"
+            TransitGatewayRouteTableId: "tgw-rtb-0228b4236053ed018"
+
+    EC2TransitGatewayRouteTablePropagation5:
+        Type: "AWS::EC2::TransitGatewayRouteTablePropagation"
+        Properties:
+            TransitGatewayAttachmentId: "tgw-attach-07f729a9452de7926"
+            TransitGatewayRouteTableId: "tgw-rtb-0c350530e716b4136"
+
+    EC2NetworkInsightsPath:
+        Type: "AWS::EC2::NetworkInsightsPath"
+        Properties:
+            Protocol: "tcp"
+            Source: "tgw-attach-08aa777f44a735c1f"
+
+    EC2NetworkInsightsPath2:
+        Type: "AWS::EC2::NetworkInsightsPath"
+        Properties:
+            Protocol: "tcp"
+            Source: "tgw-attach-07f729a9452de7926"
+
+    EC2NetworkInsightsPath3:
+        Type: "AWS::EC2::NetworkInsightsPath"
+        Properties:
+            Protocol: "tcp"
+            Source: "tgw-attach-08aa777f44a735c1f"
+            Tags: 
+              - 
+                Key: "Name"
+                Value: "miura0206"
+
+    LogsLogStream:
+        Type: "AWS::Logs::LogStream"
+        Properties:
+            LogGroupName: "/aws/vpc/miura-tgw-flowlog"
+            LogStreamName: "tgw-attach-044327cba9bc2fe70-all"
+
+    LogsLogStream2:
+        Type: "AWS::Logs::LogStream"
+        Properties:
+            LogGroupName: "/aws/vpc/miura-tgw-flowlog"
+            LogStreamName: "tgw-attach-0af0e67d46bd0b419-all"
+
+    LogsLogStream3:
+        Type: "AWS::Logs::LogStream"
+        Properties:
+            LogGroupName: "/aws/vpc/miura-tgw-flowlog"
+            LogStreamName: "tgw-attach-0dc8ebc6d5ed3f12d-all"
+
+    LogsLogStream4:
+        Type: "AWS::Logs::LogStream"
+        Properties:
+            LogGroupName: "/aws/vpc/miura-site-to-site-log"
+            LogStreamName: "vpn-039a4dfffbddbc792-35.79.136.247-IKE.log"
+
+    LogsLogStream5:
+        Type: "AWS::Logs::LogStream"
+        Properties:
+            LogGroupName: "/aws/vpc/miura-site-to-site-log"
+            LogStreamName: "vpn-097e6285557d985dd-13.113.222.218-IKE.log"
+
+    LogsLogStream6:
+        Type: "AWS::Logs::LogStream"
+        Properties:
+            LogGroupName: "/aws/vpc/miura-site-to-site-log"
+            LogStreamName: "vpn-0b030e0aa4277dce8-52.193.27.72-IKE.log"
+
+    ConfigConfigRule:
+        Type: "AWS::Config::ConfigRule"
+        Properties:
+            ConfigRuleName: "securityhub-ec2-client-vpn-connection-log-enabled-50875822"
+            Description: "Checks if AWS Client VPN endpoint has client connection logging enabled. The rule is NON_COMPLIANT if 'Configuration.ConnectionLogOptions.Enabled' is set to false."
+            Scope: 
+                ComplianceResourceTypes: 
+                  - "AWS::EC2::ClientVpnEndpoint"
+            Source: 
+                Owner: "AWS"
+                SourceIdentifier: "EC2_CLIENT_VPN_CONNECTION_LOG_ENABLED"
+            InputParameters: "{}"
+
+    ConfigConfigRule2:
+        Type: "AWS::Config::ConfigRule"
+        Properties:
+            ConfigRuleName: "securityhub-ec2-vpn-connection-logging-enabled-ffe44651"
+            Description: "Checks if AWS Site-to-Site VPN connections have Amazon CloudWatch logging enabled for both tunnels. The rule is NON_COMPLIANT if a Site-to-Site VPN connection does not have CloudWatch logging enabled for either or both tunnels."
+            Scope: 
+                ComplianceResourceTypes: 
+                  - "AWS::EC2::VPNConnection"
+            Source: 
+                Owner: "AWS"
+                SourceIdentifier: "EC2_VPN_CONNECTION_LOGGING_ENABLED"
+            InputParameters: "{}"
+
+    ConfigConfigRule3:
+        Type: "AWS::Config::ConfigRule"
+        Properties:
+            ConfigRuleName: "securityhub-vpc-vpn-2-tunnels-up-04a32806"
+            Description: "This control checks that both VPN tunnels provided by AWS Site-to-Site VPN are in UP status. The control fails if one or both tunnels are in DOWN status."
+            Scope: {}
+            Source: 
+                Owner: "AWS"
+                SourceIdentifier: "VPC_VPN_2_TUNNELS_UP"
+            InputParameters: "{}"
 
