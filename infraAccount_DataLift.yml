@@ -1,0 +1,212 @@
+AWSTemplateFormatVersion: "2010-09-09"
+Metadata:
+    Generator: "former2"
+Description: ""
+Resources:
+    EC2VPNConnection:
+        Type: "AWS::EC2::VPNConnection"
+        Properties:
+            Type: "ipsec.1"
+            StaticRoutesOnly: false
+            CustomerGatewayId: "cgw-07b50e65419d0d2f7"
+            Tags: 
+              - 
+                Key: "Name"
+                Value: "dx-tgw-s2s01"
+
+    EC2TransitGatewayRoute:
+        Type: "AWS::EC2::TransitGatewayRoute"
+        Properties:
+            DestinationCidrBlock: "0.0.0.0/0"
+            TransitGatewayRouteTableId: "tgw-rtb-0228b4236053ed018"
+
+    EC2TransitGatewayRouteTableAssociation:
+        Type: "AWS::EC2::TransitGatewayRouteTableAssociation"
+        Properties:
+            TransitGatewayAttachmentId: "tgw-attach-022a521852809f87d"
+            TransitGatewayRouteTableId: "tgw-rtb-0228b4236053ed018"
+
+    EC2TransitGatewayRouteTablePropagation:
+        Type: "AWS::EC2::TransitGatewayRouteTablePropagation"
+        Properties:
+            TransitGatewayAttachmentId: "tgw-attach-022a521852809f87d"
+            TransitGatewayRouteTableId: "tgw-rtb-0228b4236053ed018"
+
+    EC2RouteTable:
+        Type: "AWS::EC2::RouteTable"
+        Properties:
+            VpcId: "vpc-01da9986f9216708f"
+            Tags: 
+              - 
+                Key: "Name"
+                Value: "transitgw test-VPC01Private Route"
+
+    EC2RouteTable2:
+        Type: "AWS::EC2::RouteTable"
+        Properties:
+            VpcId: "vpc-016c8cc582077f4de"
+            Tags: 
+              - 
+                Key: "Name"
+                Value: "transitgw test-VPC02Private Route"
+
+    EC2RouteTable3:
+        Type: "AWS::EC2::RouteTable"
+        Properties:
+            VpcId: "vpc-0e0fec97eeaf076b3"
+            Tags: 
+              - 
+                Key: "Name"
+                Value: "dx-tgw-rt01"
+
+    EC2RouteTable4:
+        Type: "AWS::EC2::RouteTable"
+        Properties:
+            VpcId: "vpc-0bbb3bb7d04908402"
+            Tags: 
+              - 
+                Key: "Name"
+                Value: "dx-tgw-rt02"
+
+    EC2Route:
+        Type: "AWS::EC2::Route"
+        Properties:
+            DestinationCidrBlock: "0.0.0.0/0"
+            RouteTableId: !Ref EC2RouteTable
+            TransitGatewayId: !Ref EC2TransitGateway
+
+    EC2Route2:
+        Type: "AWS::EC2::Route"
+        Properties:
+            DestinationCidrBlock: "172.22.196.0/24"
+            RouteTableId: !Ref EC2RouteTable3
+            TransitGatewayId: !Ref EC2TransitGateway
+
+    EC2Route3:
+        Type: "AWS::EC2::Route"
+        Properties:
+            DestinationCidrBlock: "172.22.65.4/30"
+            RouteTableId: !Ref EC2RouteTable4
+            TransitGatewayId: !Ref EC2TransitGateway
+
+    EC2Route4:
+        Type: "AWS::EC2::Route"
+        Properties:
+            DestinationCidrBlock: "172.22.65.16/28"
+            RouteTableId: !Ref EC2RouteTable4
+            TransitGatewayId: !Ref EC2TransitGateway
+
+    EC2TransitGateway:
+        Type: "AWS::EC2::TransitGateway"
+        Properties:
+            Description: ""
+            AmazonSideAsn: 64512
+            AutoAcceptSharedAttachments: "enable"
+            DefaultRouteTableAssociation: "enable"
+            DefaultRouteTablePropagation: "enable"
+            DnsSupport: "enable"
+            VpnEcmpSupport: "enable"
+            Tags: 
+              - 
+                Key: "Name"
+                Value: "govCloud-tgw01-DataLift"
+
+    EC2TransitGatewayRouteTable:
+        Type: "AWS::EC2::TransitGatewayRouteTable"
+        Properties:
+            TransitGatewayId: !Ref EC2TransitGateway
+            Tags: 
+              - 
+                Key: "Name"
+                Value: "dx-tgw-rt-vpn01"
+
+    EC2TransitGatewayRouteTable2:
+        Type: "AWS::EC2::TransitGatewayRouteTable"
+        Properties:
+            TransitGatewayId: !Ref EC2TransitGateway
+            Tags: 
+              - 
+                Key: "Name"
+                Value: "dx-tgw-rt"
+
+    EC2TransitGatewayAttachment:
+        Type: "AWS::EC2::TransitGatewayAttachment"
+        Properties:
+            TransitGatewayId: !Ref EC2TransitGateway
+            Tags: 
+              - 
+                Key: "Name"
+                Value: "kunneppu-GCOM-ata"
+            VpcId: "vpc-080e587dada22f0c1"
+            SubnetIds: 
+              - "subnet-0c77725a319f4c80b"
+
+    EC2TransitGatewayAttachment2:
+        Type: "AWS::EC2::TransitGatewayAttachment"
+        Properties:
+            TransitGatewayId: !Ref EC2TransitGateway
+            Tags: 
+              - 
+                Key: "Name"
+                Value: "honbetsu-GCOM-ata"
+            VpcId: "vpc-0875bd05f18c47661"
+            SubnetIds: 
+              - "subnet-0fbcae662abcb192c"
+
+    EC2TransitGatewayAttachment3:
+        Type: "AWS::EC2::TransitGatewayAttachment"
+        Properties:
+            TransitGatewayId: !Ref EC2TransitGateway
+            Tags: 
+              - 
+                Key: "Name"
+                Value: "taiki-GCOM-ata"
+            VpcId: "vpc-0491b016444fb1cb6"
+            SubnetIds: 
+              - "subnet-0a5f4520c0763f521"
+
+    EC2NetworkInsightsAnalysis:
+        Type: "AWS::EC2::NetworkInsightsAnalysis"
+        Properties:
+            NetworkInsightsPathId: "nip-077b5f94de62075ab"
+
+    EC2NetworkInsightsAnalysis2:
+        Type: "AWS::EC2::NetworkInsightsAnalysis"
+        Properties:
+            NetworkInsightsPathId: "nip-0bedf419247ca656d"
+
+    EC2NetworkInsightsAnalysis3:
+        Type: "AWS::EC2::NetworkInsightsAnalysis"
+        Properties:
+            NetworkInsightsPathId: "nip-047e017eff717d8c9"
+
+    RAMResourceShare:
+        Type: "AWS::RAM::ResourceShare"
+        Properties:
+            Name: "honbetsu-GCOM-infra-tgw"
+            AllowExternalPrincipals: true
+            Principals: 
+              - "522814735681"
+            ResourceArns: 
+              - !Sub "arn:aws:ec2:${AWS::Region}:${AWS::AccountId}:transit-gateway/${EC2TransitGateway}"
+
+    RAMResourceShare2:
+        Type: "AWS::RAM::ResourceShare"
+        Properties:
+            Name: "taiki-GCOM-infra-tgw"
+            AllowExternalPrincipals: true
+            Principals: 
+              - "976193254087"
+            ResourceArns: 
+              - !Sub "arn:aws:ec2:${AWS::Region}:${AWS::AccountId}:transit-gateway/${EC2TransitGateway}"
+
+    RAMResourceShare3:
+        Type: "AWS::RAM::ResourceShare"
+        Properties:
+            Name: "kunneppu-GCOM-infra-tgw"
+            AllowExternalPrincipals: true
+            Principals: 
+              - "908027381058"
+            ResourceArns: 
+              - !Sub "arn:aws:ec2:${AWS::Region}:${AWS::AccountId}:transit-gateway/${EC2TransitGateway}"
+
