@@ -5,38 +5,38 @@ Parameters:
   # --- Customer Gateway Parameters ---
   CustomerGatewayIpAddress:
     Type: String
-    Description: "オンプレミスルーターのIPアドレスを指定。HOTnetのサービスで指定されている。変更不可"
+    Description: "[Do not change]Specify the IP address of the on-premise router. It is specified in the HOTnet service."
     Default: "172.22.65.18" # 例: オンプレミスルーターのIPアドレスを指定
   CustomerGatewayBgpAsn:
     Type: Number
     Default: 65000
-    Description: "カスタマーゲートウェイのBGP AS番号"
+    Description: "[Do not change]Customer gateway BGP AS number"
   CustomerGatewayName:
     Type: String
     Default: "dx-tgw-vpn01-cgw01" # 元のテンプレートの値
-    Description: "カスタマーゲートウェイの名前"
+    Description: "The name of your customer gateway"
 
   # --- VPN Connection Parameters ---
   VpnConnectionName:
     Type: String
     Default: "dx-tgw-s2s01" # 元のテンプレートの値
-    Description: "VPN 接続の名前"
+    Description: "The name of the VPN connection"
 
   # --- Existing Transit Gateway Infrastructure Parameters ---
   ExistingTransitGatewayId:
     Type: String
     Default: "tgw-0073091495d122b11"
-    Description: "【必須】既存Transit GatewayのID (e.g., tgw-xxxxxxxxxxxxxxxxx)."
+    Description: "[Required] Existing Transit Gateway ID (e.g., tgw-xxxxxxxxxxxxxxxxx)."
 
   ExistingTgwRouteTableIdForVpnAssociation:
     Type: String
     Default: "tgw-rtb-0c350530e716b4136"
-    Description: "【必須】VPN接続を関連付ける既存TGWルートテーブルID (オンプレミスからの通信用)"
+    Description: "[Required] Existing TGW route table ID to associate the VPN connection with (for communication from on-premise)"
 
   ExistingTgwRouteTableIdForVpnPropagation:
     Type: String
     Default: "tgw-rtb-0228b4236053ed018"
-    Description: "【必須】VPN経路を伝播させる既存TGWルートテーブルID (オンプレミスへの通信用)"
+    Description: "[Required] Existing TGW route table ID to propagate VPN route (for communication to on-premise)"
 
   # --- Optional Static Route Parameters (Uncomment if needed) ---
   # StaticRouteDestinationCidr:
