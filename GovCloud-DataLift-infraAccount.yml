@@ -1,146 +1,55 @@
 AWSTemplateFormatVersion: "2010-09-09"
-Description: "Create Transit Gateway, VPN Connection, and related resources."
+Description: "Create Customer Gateway, VPN Connection and configure TGW associations/propagations for an existing Transit Gateway. (TGW, TGW RTB, VPC Attachments, RAM Shares are NOT managed by this template)"
 
 Parameters:
-  # --- General Parameters ---
-  TransitGatewayName:
-    Type: String
-    Default: "govCloud-tgw01-DataLift"
-    Description: "Name tag for the Transit Gateway."
+  # --- Customer Gateway Parameters ---
   CustomerGatewayIpAddress:
     Type: String
-    Description: "IP address of the Customer Gateway device."
-    # Default: "172.22.65.18" # 例: 必要に応じてデフォルト値を設定
+    Description: "IP address of the Customer Gateway device (e.g., Yamaha router)."
+    # Default: "172.22.65.18" # 例: オンプレミスルーターのIPアドレスを指定
   CustomerGatewayBgpAsn:
     Type: Number
     Default: 65000
     Description: "BGP ASN for the Customer Gateway."
   CustomerGatewayName:
     Type: String
-    Default: "dx-tgw-vpn01-cgw01"
+    Default: "dx-tgw-vpn01-cgw01" # 元のテンプレートの値
     Description: "Name tag for the Customer Gateway."
+
+  # --- VPN Connection Parameters ---
   VpnConnectionName:
     Type: String
-    Default: "dx-tgw-s2s01"
+    Default: "dx-tgw-s2s01" # 元のテンプレートの値
     Description: "Name tag for the VPN Connection."
 
-  # --- Transit Gateway Route Table Parameters ---
-  TgwRouteTableNameVpn:
+  # --- Existing Transit Gateway Infrastructure Parameters ---
+  ExistingTransitGatewayId:
     Type: String
-    Default: "dx-tgw-rt-vpn01"
-    Description: "Name tag for the Transit Gateway Route Table for VPN."
-  TgwRouteTableNameMain:
+    Description: "REQUIRED: ID of the existing Transit Gateway (e.g., tgw-xxxxxxxxxxxxxxxxx)."
+  ExistingTgwRouteTableIdForVpnAssociation:
     Type: String
-    Default: "dx-tgw-rt"
-    Description: "Name tag for the main Transit Gateway Route Table."
+    Description: "REQUIRED: ID of the existing TGW Route Table to associate the VPN connection with (e.g., tgw-rtb-xxxxxxxxxxxxxxxxx). Handles traffic FROM On-Prem."
+  ExistingTgwRouteTableIdForVpnPropagation:
+    Type: String
+    Description: "REQUIRED: ID of the existing TGW Route Table to propagate VPN routes to (e.g., tgw-rtb-yyyyyyyyyyyyyyyyy). Handles traffic TO On-Prem."
+  # --- Optional Static Route Parameters (Uncomment if needed) ---
+  # StaticRouteDestinationCidr:
+  #   Type: String
+  #   Description: "(Optional) Destination CIDR for static route via VPN (e.g., 0.0.0.0/0 or specific on-prem CIDR). Leave blank if using BGP or no static route needed from TGW."
+  #   Default: ""
+  # ExistingTgwRouteTableIdForStaticRoute:
+  #   Type: String
+  #   Description: "(Optional) ID of the TGW Route Table to add the static route. If blank and StaticRouteDestinationCidr is set, propagation table ID will be used."
+  #   Default: ""
 
-  # --- VPC Attachment Parameters (Example for 3 VPCs) ---
-  # Attachment 1 (kunneppu)
-  Vpc1Id:
-    Type: AWS::EC2::VPC::Id
-    Description: "VPC ID for Attachment 1 (kunneppu)."
-    # Default: "vpc-080e587dada22f0c1"
-  Vpc1SubnetId:
-    Type: AWS::EC2::Subnet::Id
-    Description: "Subnet ID for Transit Gateway Attachment 1 (kunneppu)."
-    # Default: "subnet-0c77725a319f4c80b"
-  Vpc1AttachmentName:
-    Type: String
-    Default: "kunneppu-GCOM-ata"
-    Description: "Name tag for Transit Gateway Attachment 1."
-  Vpc1AccountId:
-    Type: String
-    Description: "AWS Account ID for VPC 1 (kunneppu)."
-    # Default: "908027381058"
-
-  # Attachment 2 (honbetsu)
-  Vpc2Id:
-    Type: AWS::EC2::VPC::Id
-    Description: "VPC ID for Attachment 2 (honbetsu)."
-    # Default: "vpc-0875bd05f18c47661"
-  Vpc2SubnetId:
-    Type: AWS::EC2::Subnet::Id
-    Description: "Subnet ID for Transit Gateway Attachment 2 (honbetsu)."
-    # Default: "subnet-0fbcae662abcb192c"
-  Vpc2AttachmentName:
-    Type: String
-    Default: "honbetsu-GCOM-ata"
-    Description: "Name tag for Transit Gateway Attachment 2."
-  Vpc2AccountId:
-    Type: String
-    Description: "AWS Account ID for VPC 2 (honbetsu)."
-    # Default: "522814735681"
-
-  # Attachment 3 (taiki)
-  Vpc3Id:
-    Type: AWS::EC2::VPC::Id
-    Description: "VPC ID for Attachment 3 (taiki)."
-    # Default: "vpc-0491b016444fb1cb6"
-  Vpc3SubnetId:
-    Type: AWS::EC2::Subnet::Id
-    Description: "Subnet ID for Transit Gateway Attachment 3 (taiki)."
-    # Default: "subnet-0a5f4520c0763f521"
-  Vpc3AttachmentName:
-    Type: String
-    Default: "taiki-GCOM-ata"
-    Description: "Name tag for Transit Gateway Attachment 3."
-  Vpc3AccountId:
-    Type: String
-    Description: "AWS Account ID for VPC 3 (taiki)."
-    # Default: "976193254087"
-
-  # --- Other VPC and Route Table Parameters ---
-  # These seem to be related to the on-premises side or other routing needs
-  VpcRouteTable1Id: # transitgw test-VPC01Private Route 用 (削除対象外の既存VPCのRouteTable ID想定)
-    Type: String
-    Description: "Route Table ID in VPC01 (e.g., for 0.0.0.0/0 via TGW)."
-    # Default: "rtb-xxxxxxxxxxxxxxxxx" # VPC01内の既存ルートテーブルIDを指定
-  VpcRouteTable2Id: # transitgw test-VPC02Private Route 用 (削除対象外の既存VPCのRouteTable ID想定)
-    Type: String
-    Description: "Route Table ID in VPC02 (e.g., for 0.0.0.0/0 via TGW)."
-    # Default: "rtb-yyyyyyyyyyyyyyyyy" # VPC02内の既存ルートテーブルIDを指定
-  VpcRouteTable3Id: # dx-tgw-rt01 用 (削除対象外の既存VPCのRouteTable ID想定)
-    Type: String
-    Description: "Route Table ID for dx-tgw-rt01 (e.g., for specific routes via TGW)."
-    # Default: "rtb-zzzzzzzzzzzzzzzzz" # dx-tgw-rt01 用の既存ルートテーブルIDを指定
-  VpcRouteTable4Id: # dx-tgw-rt02 用 (削除対象外の既存VPCのRouteTable ID想定)
-    Type: String
-    Description: "Route Table ID for dx-tgw-rt02 (e.g., for specific routes via TGW)."
-    # Default: "rtb-aaaaaaaaaaaaaaaaa" # dx-tgw-rt02 用の既存ルートテーブルIDを指定
+# --- Optional Conditions for Static Route (Uncomment if needed) ---
+# Conditions:
+#  CreateStaticRoute: !Not [!Equals [!Ref StaticRouteDestinationCidr, ""]]
+#  UseSeparateStaticRouteTable: !And
+#    - !Condition CreateStaticRoute
+#    - !Not [!Equals [!Ref ExistingTgwRouteTableIdForStaticRoute, ""]]
 
 Resources:
-  # --- Transit Gateway ---
-  EC2TransitGateway:
-    Type: "AWS::EC2::TransitGateway"
-    Properties:
-      Description: !Sub "Transit Gateway for ${AWS::StackName}"
-      AmazonSideAsn: 64512
-      AutoAcceptSharedAttachments: "enable"
-      DefaultRouteTableAssociation: "enable" # 必要に応じて disable に変更
-      DefaultRouteTablePropagation: "enable" # 必要に応じて disable に変更
-      DnsSupport: "enable"
-      VpnEcmpSupport: "enable"
-      Tags:
-        - Key: "Name"
-          Value: !Ref TransitGatewayName
-
-  # --- Transit Gateway Route Tables ---
-  EC2TransitGatewayRouteTableVpn:
-    Type: "AWS::EC2::TransitGatewayRouteTable"
-    Properties:
-      TransitGatewayId: !Ref EC2TransitGateway
-      Tags:
-        - Key: "Name"
-          Value: !Ref TgwRouteTableNameVpn
-
-  EC2TransitGatewayRouteTableMain:
-    Type: "AWS::EC2::TransitGatewayRouteTable"
-    Properties:
-      TransitGatewayId: !Ref EC2TransitGateway
-      Tags:
-        - Key: "Name"
-          Value: !Ref TgwRouteTableNameMain
-
   # --- Customer Gateway ---
   EC2CustomerGateway:
     Type: "AWS::EC2::CustomerGateway"
@@ -157,256 +66,64 @@ Resources:
     Type: "AWS::EC2::VPNConnection"
     Properties:
       Type: "ipsec.1"
+      # BGPを使用しない静的ルートVPNの場合は true に設定
       StaticRoutesOnly: false
       CustomerGatewayId: !Ref EC2CustomerGateway
-      TransitGatewayId: !Ref EC2TransitGateway # Transit Gatewayへの接続
+      # 既存のTransit Gateway IDを参照
+      TransitGatewayId: !Ref ExistingTransitGatewayId
       Tags:
         - Key: "Name"
           Value: !Ref VpnConnectionName
-    DependsOn:
-      - EC2TransitGateway
-      - EC2CustomerGateway
+    # 既存のTGWを参照するため、DependsOnは不要
 
-  # --- Transit Gateway Attachments (for the 3 VPCs) ---
-  EC2TransitGatewayAttachment1:
-    Type: "AWS::EC2::TransitGatewayAttachment"
-    Properties:
-      TransitGatewayId: !Ref EC2TransitGateway
-      VpcId: !Ref Vpc1Id
-      SubnetIds:
-        - !Ref Vpc1SubnetId
-      Tags:
-        - Key: "Name"
-          Value: !Ref Vpc1AttachmentName
-    DependsOn: EC2TransitGateway
-
-  EC2TransitGatewayAttachment2:
-    Type: "AWS::EC2::TransitGatewayAttachment"
-    Properties:
-      TransitGatewayId: !Ref EC2TransitGateway
-      VpcId: !Ref Vpc2Id
-      SubnetIds:
-        - !Ref Vpc2SubnetId
-      Tags:
-        - Key: "Name"
-          Value: !Ref Vpc2AttachmentName
-    DependsOn: EC2TransitGateway
-
-  EC2TransitGatewayAttachment3:
-    Type: "AWS::EC2::TransitGatewayAttachment"
-    Properties:
-      TransitGatewayId: !Ref EC2TransitGateway
-      VpcId: !Ref Vpc3Id
-      SubnetIds:
-        - !Ref Vpc3SubnetId
-      Tags:
-        - Key: "Name"
-          Value: !Ref Vpc3AttachmentName
-    DependsOn: EC2TransitGateway
-
-  # --- Transit Gateway Route Table Associations ---
-  # VPN ConnectionをVPN用ルートテーブルに関連付け
+  # --- Transit Gateway Route Table Association for VPN ---
+  # 作成したVPN接続を指定された既存TGWルートテーブルに関連付ける
   TgwRouteTableAssociationVpn:
     Type: "AWS::EC2::TransitGatewayRouteTableAssociation"
     Properties:
-      TransitGatewayAttachmentId: !Ref EC2VPNConnection # VPN ConnectionのアタッチメントIDを参照
-      TransitGatewayRouteTableId: !Ref EC2TransitGatewayRouteTableVpn
-    DependsOn:
-      - EC2VPNConnection
-      - EC2TransitGatewayRouteTableVpn
+      # 作成したVPN Connectionのリソースを参照
+      TransitGatewayAttachmentId: !Ref EC2VPNConnection
+      # パラメータで指定された既存TGWルートテーブルIDを参照
+      TransitGatewayRouteTableId: !Ref ExistingTgwRouteTableIdForVpnAssociation
+    # VPN Connection作成後に実行
+    DependsOn: EC2VPNConnection
 
-  # VPC AttachmentsをMainルートテーブルに関連付け (DefaultRouteTableAssociation=enable の場合は不要な場合あり)
-  TgwRouteTableAssociationVpc1:
-    Type: "AWS::EC2::TransitGatewayRouteTableAssociation"
-    Properties:
-      TransitGatewayAttachmentId: !Ref EC2TransitGatewayAttachment1
-      TransitGatewayRouteTableId: !Ref EC2TransitGatewayRouteTableMain
-    DependsOn:
-      - EC2TransitGatewayAttachment1
-      - EC2TransitGatewayRouteTableMain
-
-  TgwRouteTableAssociationVpc2:
-    Type: "AWS::EC2::TransitGatewayRouteTableAssociation"
-    Properties:
-      TransitGatewayAttachmentId: !Ref EC2TransitGatewayAttachment2
-      TransitGatewayRouteTableId: !Ref EC2TransitGatewayRouteTableMain
-    DependsOn:
-      - EC2TransitGatewayAttachment2
-      - EC2TransitGatewayRouteTableMain
-
-  TgwRouteTableAssociationVpc3:
-    Type: "AWS::EC2::TransitGatewayRouteTableAssociation"
-    Properties:
-      TransitGatewayAttachmentId: !Ref EC2TransitGatewayAttachment3
-      TransitGatewayRouteTableId: !Ref EC2TransitGatewayRouteTableMain
-    DependsOn:
-      - EC2TransitGatewayAttachment3
-      - EC2TransitGatewayRouteTableMain
-
-  # --- Transit Gateway Route Table Propagations ---
-  # VPC Attachmentsからの経路をVPN用ルートテーブルに伝播
-  TgwRouteTablePropagationVpc1ToVpn:
+  # --- Transit Gateway Route Table Propagation for VPN ---
+  # 作成したVPN接続からの経路(BGP)を指定された既存TGWルートテーブルに伝播させる
+  TgwRouteTablePropagationVpn:
     Type: "AWS::EC2::TransitGatewayRouteTablePropagation"
     Properties:
-      TransitGatewayAttachmentId: !Ref EC2TransitGatewayAttachment1
-      TransitGatewayRouteTableId: !Ref EC2TransitGatewayRouteTableVpn
-    DependsOn:
-      - EC2TransitGatewayAttachment1
-      - EC2TransitGatewayRouteTableVpn
+      # 作成したVPN Connectionのリソースを参照
+      TransitGatewayAttachmentId: !Ref EC2VPNConnection
+      # パラメータで指定された既存TGWルートテーブルIDを参照
+      TransitGatewayRouteTableId: !Ref ExistingTgwRouteTableIdForVpnPropagation
+    # VPN Connection作成後に実行
+    DependsOn: EC2VPNConnection
 
-  TgwRouteTablePropagationVpc2ToVpn:
-    Type: "AWS::EC2::TransitGatewayRouteTablePropagation"
-    Properties:
-      TransitGatewayAttachmentId: !Ref EC2TransitGatewayAttachment2
-      TransitGatewayRouteTableId: !Ref EC2TransitGatewayRouteTableVpn
-    DependsOn:
-      - EC2TransitGatewayAttachment2
-      - EC2TransitGatewayRouteTableVpn
-
-  TgwRouteTablePropagationVpc3ToVpn:
-    Type: "AWS::EC2::TransitGatewayRouteTablePropagation"
-    Properties:
-      TransitGatewayAttachmentId: !Ref EC2TransitGatewayAttachment3
-      TransitGatewayRouteTableId: !Ref EC2TransitGatewayRouteTableVpn
-    DependsOn:
-      - EC2TransitGatewayAttachment3
-      - EC2TransitGatewayRouteTableVpn
-
-  # VPN Connectionからの経路をMainルートテーブルに伝播
-  TgwRouteTablePropagationVpnToMain:
-    Type: "AWS::EC2::TransitGatewayRouteTablePropagation"
-    Properties:
-      TransitGatewayAttachmentId: !Ref EC2VPNConnection # VPN ConnectionのアタッチメントIDを参照
-      TransitGatewayRouteTableId: !Ref EC2TransitGatewayRouteTableMain
-    DependsOn:
-      - EC2VPNConnection
-      - EC2TransitGatewayRouteTableMain
-
-  # --- Transit Gateway Static Routes ---
-  # 必要に応じて静的ルートを追加 (BGPを使用しない場合など)
-  # 例: VPN向けルートテーブルからオンプレミスへのデフォルトルート
-  TgwRouteToOnPremViaVpn:
-    Type: "AWS::EC2::TransitGatewayRoute"
-    Properties:
-      DestinationCidrBlock: "0.0.0.0/0"
-      TransitGatewayRouteTableId: !Ref EC2TransitGatewayRouteTableVpn
-      TransitGatewayAttachmentId: !Ref EC2VPNConnection # VPN ConnectionのアタッチメントIDを参照
-    DependsOn: TgwRouteTableAssociationVpn # Associationの後にRouteを作成
-
-  # 例: Mainルートテーブルから特定のオンプレミスCIDRへのルート
-  # TgwRouteToSpecificOnPrem1:
+  # --- Optional: Transit Gateway Static Route via VPN (Uncomment and configure if needed) ---
+  # TgwStaticRouteViaVpn:
+  #   Condition: CreateStaticRoute # 静的ルートCIDRが指定された場合のみ作成
   #   Type: "AWS::EC2::TransitGatewayRoute"
   #   Properties:
-  #     DestinationCidrBlock: "172.22.65.16/28" # パラメータ化を検討
-  #     TransitGatewayRouteTableId: !Ref EC2TransitGatewayRouteTableMain
-  #     TransitGatewayAttachmentId: !Ref EC2VPNConnection # VPN ConnectionのアタッチメントIDを参照
-  #   DependsOn: TgwRouteTablePropagationVpnToMain
-
-  # TgwRouteToSpecificOnPrem2:
-  #   Type: "AWS::EC2::TransitGatewayRoute"
-  #   Properties:
-  #     DestinationCidrBlock: "172.22.65.4/30" # パラメータ化を検討
-  #     TransitGatewayRouteTableId: !Ref EC2TransitGatewayRouteTableMain
-  #     TransitGatewayAttachmentId: !Ref EC2VPNConnection # VPN ConnectionのアタッチメントIDを参照
-  #   DependsOn: TgwRouteTablePropagationVpnToMain
-
-  # 例: MainルートテーブルからVPCへのルート (通常はPropagationで学習されるが、必要なら)
-  # TgwRouteToVpc1:
-  #   Type: "AWS::EC2::TransitGatewayRoute"
-  #   Properties:
-  #     DestinationCidrBlock: "xxx.xxx.xxx.xxx/yy" # VPC1のCIDR (パラメータ化)
-  #     TransitGatewayRouteTableId: !Ref EC2TransitGatewayRouteTableMain
-  #     TransitGatewayAttachmentId: !Ref EC2TransitGatewayAttachment1
-  #   DependsOn: TgwRouteTableAssociationVpc1
-
-  # --- VPC Route Table Routes ---
-  # 各VPC内のルートテーブルにTransit Gatewayへのルートを追加
-  # 注意: これらのルートテーブル (VpcRouteTableXIdで指定) は外部で作成済みである必要があります。
-  Vpc1RouteToTgw:
-      Type: "AWS::EC2::Route"
-      Properties:
-          DestinationCidrBlock: "0.0.0.0/0" # またはより具体的なCIDR
-          RouteTableId: !Ref VpcRouteTable1Id
-          TransitGatewayId: !Ref EC2TransitGateway
-      DependsOn: EC2TransitGateway # TGW作成後にルート追加
-
-  Vpc2RouteToTgw: # 元の EC2Route に相当 (必要なら)
-      Type: "AWS::EC2::Route"
-      Properties:
-          DestinationCidrBlock: "0.0.0.0/0" # またはより具体的なCIDR
-          RouteTableId: !Ref VpcRouteTable2Id
-          TransitGatewayId: !Ref EC2TransitGateway
-      DependsOn: EC2TransitGateway
-
-  Vpc3RouteToTgw1: # 元の EC2Route2 に相当
-      Type: "AWS::EC2::Route"
-      Properties:
-          DestinationCidrBlock: "172.22.196.0/24" # パラメータ化を検討
-          RouteTableId: !Ref VpcRouteTable3Id
-          TransitGatewayId: !Ref EC2TransitGateway
-      DependsOn: EC2TransitGateway
-
-  Vpc4RouteToTgw1: # 元の EC2Route3 に相当
-      Type: "AWS::EC2::Route"
-      Properties:
-          DestinationCidrBlock: "172.22.65.4/30" # パラメータ化を検討
-          RouteTableId: !Ref VpcRouteTable4Id
-          TransitGatewayId: !Ref EC2TransitGateway
-      DependsOn: EC2TransitGateway
-
-  Vpc4RouteToTgw2: # 元の EC2Route4 に相当
-      Type: "AWS::EC2::Route"
-      Properties:
-          DestinationCidrBlock: "172.22.65.16/28" # パラメータ化を検討
-          RouteTableId: !Ref VpcRouteTable4Id
-          TransitGatewayId: !Ref EC2TransitGateway
-      DependsOn: EC2TransitGateway
-
-
-  # --- RAM Resource Shares for VPC Attachments ---
-  RAMResourceShare1:
-      Type: "AWS::RAM::ResourceShare"
-      Properties:
-          Name: !Sub "${Vpc1AttachmentName}-tgw-share"
-          AllowExternalPrincipals: true
-          Principals:
-            - !Ref Vpc1AccountId
-          ResourceArns:
-            - !Sub "arn:${AWS::Partition}:ec2:${AWS::Region}:${AWS::AccountId}:transit-gateway/${EC2TransitGateway}"
-      DependsOn: EC2TransitGateway
-
-  RAMResourceShare2:
-      Type: "AWS::RAM::ResourceShare"
-      Properties:
-          Name: !Sub "${Vpc2AttachmentName}-tgw-share"
-          AllowExternalPrincipals: true
-          Principals:
-            - !Ref Vpc2AccountId
-          ResourceArns:
-            - !Sub "arn:${AWS::Partition}:ec2:${AWS::Region}:${AWS::AccountId}:transit-gateway/${EC2TransitGateway}"
-      DependsOn: EC2TransitGateway
-
-  RAMResourceShare3:
-      Type: "AWS::RAM::ResourceShare"
-      Properties:
-          Name: !Sub "${Vpc3AttachmentName}-tgw-share"
-          AllowExternalPrincipals: true
-          Principals:
-            - !Ref Vpc3AccountId
-          ResourceArns:
-            - !Sub "arn:${AWS::Partition}:ec2:${AWS::Region}:${AWS::AccountId}:transit-gateway/${EC2TransitGateway}"
-      DependsOn: EC2TransitGateway
+  #     DestinationCidrBlock: !Ref StaticRouteDestinationCidr
+  #     TransitGatewayAttachmentId: !Ref EC2VPNConnection # このVPN接続を経路とする
+  #     TransitGatewayRouteTableId: !If # 静的ルート用テーブルが指定されていればそれを使用、なければ伝播用テーブルを使用
+  #       - UseSeparateStaticRouteTable
+  #       - !Ref ExistingTgwRouteTableIdForStaticRoute
+  #       - !Ref ExistingTgwRouteTableIdForVpnPropagation
+  #   DependsOn: TgwRouteTablePropagationVpn # 伝播設定後にルート追加 (依存関係は適宜調整)
 
 Outputs:
-  TransitGatewayId:
-    Description: "ID of the created Transit Gateway"
-    Value: !Ref EC2TransitGateway
   VpnConnectionId:
     Description: "ID of the created VPN Connection"
     Value: !Ref EC2VPNConnection
-  TransitGatewayRouteTableVpnId:
-    Description: "ID of the Transit Gateway Route Table for VPN"
-    Value: !Ref EC2TransitGatewayRouteTableVpn
-  TransitGatewayRouteTableMainId:
-    Description: "ID of the Main Transit Gateway Route Table"
-    Value: !Ref EC2TransitGatewayRouteTableMain
+  CustomerGatewayId:
+    Description: "ID of the created Customer Gateway"
+    Value: !Ref EC2CustomerGateway
+  # --- Optional: Add outputs for tunnel IPs if needed ---
+  # VpnConnectionTunnel1IpAddress:
+  #   Description: "Outside IP Address for VPN Tunnel 1"
+  #   Value: !GetAtt EC2VPNConnection.TunnelOptions.0.OutsideIpAddress
+  # VpnConnectionTunnel2IpAddress:
+  #   Description: "Outside IP Address for VPN Tunnel 2"
+  #   Value: !GetAtt EC2VPNConnection.TunnelOptions.1.OutsideIpAddress
