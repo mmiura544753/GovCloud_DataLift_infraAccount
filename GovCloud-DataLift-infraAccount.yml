@@ -1,112 +1,91 @@
 AWSTemplateFormatVersion: "2010-09-09"
-Description: "Create Customer Gateway, VPN Connection and configure TGW associations/propagations for an existing Transit Gateway. (TGW, TGW RTB, VPC Attachments, RAM Shares are NOT managed by this template)"
+Description: "Create Customer Gateway (with Private IP for DX+VPN), VPN Connection over Direct Connect Transit VIF, and configure TGW associations/propagations."
 
 Parameters:
-  # --- Customer Gateway Parameters ---
+  # --- Customer Gateway Parameters (for DX+VPN, use Private IP) ---
   CustomerGatewayIpAddress:
     Type: String
-    Description: "[Do not change]Specify the IP address of the on-premise router. It is specified in the HOTnet service."
-    Default: "172.22.65.18" # 例: オンプレミスルーターのIPアドレスを指定
+    Default: "172.22.65.18" # 重要: Direct Connect経由で接続するオンプレミスルーターの「プライベートIPアドレス」を指定してください
+    Description: "[Required] Specify the Private IP address of the on-premise router connected via Direct Connect."
+    MinLength: 1
   CustomerGatewayBgpAsn:
     Type: Number
     Default: 65000
-    Description: "[Do not change]Customer gateway BGP AS number"
+    Description: "[Required] Customer gateway BGP AS number."
   CustomerGatewayName:
     Type: String
-    Default: "dx-tgw-vpn01-cgw01" # 元のテンプレートの値
-    Description: "The name of your customer gateway"
+    Default: "dx-tgw-vpn01-cgw01" # 必要に応じてカスタマイズしてください
+    Description: "The name for the Customer Gateway."
 
   # --- VPN Connection Parameters ---
   VpnConnectionName:
     Type: String
-    Default: "dx-tgw-s2s01" # 元のテンプレートの値
-    Description: "The name of the VPN connection"
+    Default: "dx-tgw-s2s01"
+    Description: "The name of the VPN connection."
 
-  # --- Existing Transit Gateway Infrastructure Parameters ---
+  # --- Existing Infrastructure Parameters ---
   ExistingTransitGatewayId:
     Type: String
     Default: "tgw-0073091495d122b11"
-    Description: "[Required] Existing Transit Gateway ID (e.g., tgw-xxxxxxxxxxxxxxxxx)."
-
+    Description: "[Required] Existing Transit Gateway ID."
+    MinLength: 1
+  ExistingTransportTransitGatewayAttachmentId:
+    Type: String
+    Default: "tgw-attach-07f729a9452de7926" # 前回の指定に基づくデフォルト値
+    Description: "[Required] Existing Transport Transit Gateway Attachment ID (Transit VIF attachment)."
+    MinLength: 1
   ExistingTgwRouteTableIdForVpnAssociation:
     Type: String
-    Default: "tgw-rtb-0c350530e716b4136"
-    Description: "[Required] Existing TGW route table ID to associate the VPN connection with (for communication from on-premise)"
-
+    Default: "tgw-rtb-0c350530e716b4136" # 元のテンプレートの値
+    Description: "[Required] Existing TGW route table ID to associate the VPN connection with."
+    MinLength: 1
   ExistingTgwRouteTableIdForVpnPropagation:
     Type: String
-    Default: "tgw-rtb-0228b4236053ed018"
-    Description: "[Required] Existing TGW route table ID to propagate VPN route (for communication to on-premise)"
-
-  # --- Optional Static Route Parameters (Uncomment if needed) ---
-  # StaticRouteDestinationCidr:
-  #   Type: String
-  #   Description: "(Optional) Destination CIDR for static route via VPN (e.g., 0.0.0.0/0 or specific on-prem CIDR). Leave blank if using BGP or no static route needed from TGW."
-  #   Default: ""
-  # ExistingTgwRouteTableIdForStaticRoute:
-  #   Type: String
-  #   Description: "(Optional) ID of the TGW Route Table to add the static route. If blank and StaticRouteDestinationCidr is set, propagation table ID will be used."
-  #   Default: ""
-
-# --- Optional Conditions for Static Route (Uncomment if needed) ---
-# Conditions:
-#  CreateStaticRoute: !Not [!Equals [!Ref StaticRouteDestinationCidr, ""]]
-#  UseSeparateStaticRouteTable: !And
-#    - !Condition CreateStaticRoute
-#    - !Not [!Equals [!Ref ExistingTgwRouteTableIdForStaticRoute, ""]]
+    Default: "tgw-rtb-0228b4236053ed018" # 元のテンプレートの値
+    Description: "[Required] Existing TGW route table ID to propagate VPN route."
+    MinLength: 1
 
 Resources:
-  # --- VPN Connection ---
+  # --- Customer Gateway (with Private IP for DX+VPN) ---
+  EC2CustomerGateway:
+    Type: "AWS::EC2::CustomerGateway"
+    Properties:
+      BgpAsn: !Ref CustomerGatewayBgpAsn
+      IpAddress: !Ref CustomerGatewayIpAddress # パラメータで指定されたプライベートIPを使用
+      Type: "ipsec.1"
+      Tags:
+        - Key: "Name"
+          Value: !Ref CustomerGatewayName
+
+  # --- VPN Connection over Direct Connect ---
   EC2VPNConnection:
     Type: "AWS::EC2::VPNConnection"
     Properties:
       Type: "ipsec.1"
-      # BGPを使用しない静的ルートVPNの場合は true に設定
-      StaticRoutesOnly: false
-      CustomerGatewayId: !Ref EC2CustomerGateway
-      # 既存のTransit Gateway IDを参照
+      StaticRoutesOnly: false # 動的ルーティング (BGP)
+      CustomerGatewayId: !Ref EC2CustomerGateway # このテンプレートで作成するCGWを参照
       TransitGatewayId: !Ref ExistingTransitGatewayId
+      TransportTransitGatewayAttachmentId: !Ref ExistingTransportTransitGatewayAttachmentId # Transit VIF Attachment ID を指定
       Tags:
         - Key: "Name"
           Value: !Ref VpnConnectionName
-    # 既存のTGWを参照するため、DependsOnは不要
+    # !Ref EC2CustomerGateway により、CGW作成後にVPNが作成される依存関係が自動的に設定されます
 
   # --- Transit Gateway Route Table Association for VPN ---
-  # 作成したVPN接続を指定された既存TGWルートテーブルに関連付ける
   TgwRouteTableAssociationVpn:
     Type: "AWS::EC2::TransitGatewayRouteTableAssociation"
     Properties:
-      # 作成したVPN Connectionのリソースを参照
       TransitGatewayAttachmentId: !Ref EC2VPNConnection
-      # パラメータで指定された既存TGWルートテーブルIDを参照
       TransitGatewayRouteTableId: !Ref ExistingTgwRouteTableIdForVpnAssociation
-    # VPN Connection作成後に実行
-    DependsOn: EC2VPNConnection
+    DependsOn: EC2VPNConnection # 依存関係を明示（必須ではないが推奨）
 
   # --- Transit Gateway Route Table Propagation for VPN ---
-  # 作成したVPN接続からの経路(BGP)を指定された既存TGWルートテーブルに伝播させる
   TgwRouteTablePropagationVpn:
     Type: "AWS::EC2::TransitGatewayRouteTablePropagation"
     Properties:
-      # 作成したVPN Connectionのリソースを参照
       TransitGatewayAttachmentId: !Ref EC2VPNConnection
-      # パラメータで指定された既存TGWルートテーブルIDを参照
       TransitGatewayRouteTableId: !Ref ExistingTgwRouteTableIdForVpnPropagation
-    # VPN Connection作成後に実行
-    DependsOn: EC2VPNConnection
-
-  # --- Optional: Transit Gateway Static Route via VPN (Uncomment and configure if needed) ---
-  # TgwStaticRouteViaVpn:
-  #   Condition: CreateStaticRoute # 静的ルートCIDRが指定された場合のみ作成
-  #   Type: "AWS::EC2::TransitGatewayRoute"
-  #   Properties:
-  #     DestinationCidrBlock: !Ref StaticRouteDestinationCidr
-  #     TransitGatewayAttachmentId: !Ref EC2VPNConnection # このVPN接続を経路とする
-  #     TransitGatewayRouteTableId: !If # 静的ルート用テーブルが指定されていればそれを使用、なければ伝播用テーブルを使用
-  #       - UseSeparateStaticRouteTable
-  #       - !Ref ExistingTgwRouteTableIdForStaticRoute
-  #       - !Ref ExistingTgwRouteTableIdForVpnPropagation
-  #   DependsOn: TgwRouteTablePropagationVpn # 伝播設定後にルート追加 (依存関係は適宜調整)
+    DependsOn: EC2VPNConnection # 依存関係を明示（必須ではないが推奨）
 
 Outputs:
   VpnConnectionId:
@@ -115,10 +94,3 @@ Outputs:
   CustomerGatewayId:
     Description: "ID of the created Customer Gateway"
     Value: !Ref EC2CustomerGateway
-  # --- Optional: Add outputs for tunnel IPs if needed ---
-  # VpnConnectionTunnel1IpAddress:
-  #   Description: "Outside IP Address for VPN Tunnel 1"
-  #   Value: !GetAtt EC2VPNConnection.TunnelOptions.0.OutsideIpAddress
-  # VpnConnectionTunnel2IpAddress:
-  #   Description: "Outside IP Address for VPN Tunnel 2"
-  #   Value: !GetAtt EC2VPNConnection.TunnelOptions.1.OutsideIpAddress
