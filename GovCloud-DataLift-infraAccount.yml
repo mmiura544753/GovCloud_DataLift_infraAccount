@@ -56,17 +56,6 @@ Parameters:
 #    - !Not [!Equals [!Ref ExistingTgwRouteTableIdForStaticRoute, ""]]
 
 Resources:
-  # --- Customer Gateway ---
-  EC2CustomerGateway:
-    Type: "AWS::EC2::CustomerGateway"
-    Properties:
-      BgpAsn: !Ref CustomerGatewayBgpAsn
-      IpAddress: !Ref CustomerGatewayIpAddress
-      Type: "ipsec.1"
-      Tags:
-        - Key: "Name"
-          Value: !Ref CustomerGatewayName
-
   # --- VPN Connection ---
   EC2VPNConnection:
     Type: "AWS::EC2::VPNConnection"
